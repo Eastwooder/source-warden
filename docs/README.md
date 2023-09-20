@@ -1,5 +1,7 @@
 # SourceFox
 
+[![Check](https://github.com/Eastwooder/source-fox/actions/workflows/check.yaml/badge.svg?branch=main)](https://github.com/Eastwooder/source-fox/actions/workflows/check.yaml)
+
 A GitHub Application meant to watch over your source code.
 
 ## Getting started

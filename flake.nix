@@ -29,6 +29,7 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
+
           # import and bind toolchain to the provided `rust-toolchain.toml` in the root directory
           rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
           rustToolchainWasm = pkgs.rust-bin.stable.latest.default.override {
@@ -37,6 +38,7 @@
           };
           craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
           craneLibWasm = (crane.mkLib pkgs).overrideToolchain rustToolchainWasm;
+
           # declare the sources
           src = pkgs.lib.cleanSourceWith {
             src = ./.;
@@ -60,8 +62,11 @@
             ;
           };
 
+          # declare the build inputs used to build the projects
           nativeBuildInputs = with pkgs; [ rustToolchain pkg-config ];
+          # declare the build inputs used to link and run the projects, will be included in the final artifact container
           buildInputs = with pkgs; [ openssl sqlite ];
+
           # declare build arguments
           commonArgs = {
             inherit src buildInputs nativeBuildInputs;
@@ -73,12 +78,13 @@
             CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
           };
 
-          # Cargo artifact output
+          # Cargo artifact dependency output
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
           cargoArtifactsWasm = craneLibWasm.buildDepsOnly (wasmArgs // {
             doCheck = false;
           });
 
+          # Actual targets to be built and executed
           service-ui = craneLibWasm.buildTrunkPackage (wasmArgs // {
             inherit cargoArtifactsWasm;
             pname = "service-ui";
@@ -95,17 +101,23 @@
         in
         with pkgs;
         {
+          # formatter for the flake.nix
           formatter = nixpkgs-fmt;
+
+          # executes all checks
           checks = {
             inherit server service-ui;
-            root-clippy = craneLib.cargoClippy (commonArgs // {
+            source-fox-clippy = craneLib.cargoClippy (commonArgs // {
               inherit cargoArtifacts;
               cargoClippyExtraArgs = "--all-targets";
               CLIENT_DIST = "";
             });
-            root-fmt = craneLib.cargoFmt commonArgs;
+            source-fox-fmt = craneLib.cargoFmt commonArgs;
+            # pre-commit-checks to be installed for the dev environment
             pre-commit-check = pre-commit-hooks.lib.${system}.run {
               src = ./.;
+
+              # git commit hooks
               hooks = {
                 nixpkgs-fmt.enable = true;
                 # clippy.enable = true;
@@ -116,6 +128,8 @@
               };
             };
           };
+
+          # packages to build and provide
           packages = {
             inherit server service-ui;
             about = pkgs.writeScriptBin "about" ''
@@ -123,10 +137,14 @@
               echo "Welcome to our bot!"
             '';
           };
+
+          # applications which can be started as-is
           apps.server = {
             type = "app";
             program = "${self.packages.${system}.server}/bin/server";
           };
+
+          # development environment provided with all bells and whistles included
           devShells.default = mkShell {
             inherit (self.checks.${system}.pre-commit-check) shellHook;
             inputsFrom = [

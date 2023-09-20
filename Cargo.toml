@@ -1,7 +1,7 @@
 [workspace.package]
-name = "refactored-octo-palm-tree"
+name = "source-fx"
 version = "0.1.0"
-description = "Your buddy watching your projects"
+description = "Your smart buddy watching your projects"
 edition = "2021"
 
 [workspace.dependencies]

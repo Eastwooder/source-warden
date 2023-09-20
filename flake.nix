@@ -19,6 +19,10 @@
     };
     pre-commit-hooks = {
       url = "github:cachix/pre-commit-hooks.nix";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+      };
     };
   };
   outputs = { self, nixpkgs, flake-utils, rust-overlay, crane, pre-commit-hooks }:

@@ -132,6 +132,7 @@
           # packages to build and provide
           packages = {
             inherit server service-ui;
+            default = server;
             about = pkgs.writeScriptBin "about" ''
               #!/bin/sh
               echo "Welcome to our bot!"

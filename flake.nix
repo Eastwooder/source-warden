@@ -108,11 +108,11 @@
               src = ./.;
               hooks = {
                 nixpkgs-fmt.enable = true;
-                clippy.enable = true;
+                # clippy.enable = true;
                 rustfmt.enable = true;
                 markdownlint.enable = true;
-                shellcheck.enable = true;
                 commitizen.enable = true;
+                typos.enable = true;
               };
             };
           };

@@ -13,7 +13,7 @@ async fn request_posts() -> Vec<Post> {
     net::http::Request::get("http://localhost:8000/posts")
         .send()
         .await
-        .expect("Failed to connect with server, is it runnig at localhost:8000?")
+        .expect("Failed to connect with server, is it running at localhost:8000?")
         .json()
         .await
         .expect("Received invalid response from server")

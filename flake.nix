@@ -43,8 +43,8 @@
           src = pkgs.lib.cleanSourceWith {
             src = ./.;
             filter = path: type:
-              # include everything in the `src` directory
-              (pkgs.lib.hasInfix "/src/" path) ||
+              # include everything in the `tests` directory - including test objects
+              (pkgs.lib.hasInfix "/tests/" path) ||
               # Default filter from crane (allow .rs files)
               (craneLib.filterCargoSources path type)
             ;

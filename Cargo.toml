@@ -1,0 +1,18 @@
+[workspace.package]
+name = "refactored-octo-palm-tree"
+version = "0.1.0"
+description = "Your buddy watching your projects"
+edition = "2021"
+
+[workspace.dependencies]
+tracing = { verison = "0.1.37", features = ["attributes", "valuable"] }
+serde = { version = "1.0.175", features = ["derive"] }
+
+[workspace]
+resolver = "2"
+members = [
+    "github-event-receiver",
+    "mergeable-compatibility-layer",
+    "server",
+    "service-ui"
+]

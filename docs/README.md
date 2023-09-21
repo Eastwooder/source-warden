@@ -20,11 +20,11 @@ You can either build the docker container as a single layer or stream all layers
 - single layer  
   
   ```shell
-  nix build .\#server-docker && zcat ./result | docker load
+  nix build .#server-docker && zcat ./result | docker load
   ```
 
 - multiple layers  
   
   ```shell
-  nix build .\#server-docker-stream && ./result | docker load
+  nix build .#server-docker-stream && ./result | docker load
   ```

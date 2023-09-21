@@ -33,10 +33,14 @@ jobs:
           name: source-fox
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           extraPullNames: nix-community
+      - id: sanitize-repository-name
+        shell: pwsh
+        run: |
+          "::set-output name=repository::$($env:GITHUB_REPOSITORY.ToLowerInvariant())"
       - name: Build and load Docker image
         run: |
           nix build .#server-docker-stream && ./result | docker load
-          docker tag source-fox:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker tag source-fox:latest ${{ env.REGISTRY }}/${{ steps.sanitize-repository-name.outputs.repository }}:latest
       - name: Push Docker image
         run: |
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.REGISTRY }}/${{ steps.sanitize-repository-name.outputs.repository }}:latest

@@ -40,7 +40,7 @@ jobs:
       - name: Build and load Docker image
         run: |
           nix build .#server-docker-stream && ./result | docker load
-          docker tag source-fox:latest ${{ env.REGISTRY }}/${{ steps.sanitize-repository-name.outputs.repository }}:latest
+          docker tag source-warden:latest ${{ env.REGISTRY }}/${{ steps.sanitize-repository-name.outputs.repository }}:latest
       - name: Push Docker image
         run: |
           docker push ${{ env.REGISTRY }}/${{ steps.sanitize-repository-name.outputs.repository }}:latest

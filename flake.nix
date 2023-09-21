@@ -114,7 +114,7 @@
           });
 
           serverOci = {
-            name = "source-fox";
+            name = "source-warden";
             tag = "latest";
             config = {
               Cmd = [ "${server}/bin/server" ];
@@ -135,12 +135,12 @@
           # executes all checks
           checks = {
             inherit server service-ui;
-            source-fox-clippy = craneLib.cargoClippy (commonArgs // {
+            source-warden-clippy = craneLib.cargoClippy (commonArgs // {
               inherit cargoArtifacts;
               cargoClippyExtraArgs = "--all-targets";
               CLIENT_DIST = "";
             });
-            source-fox-fmt = craneLib.cargoFmt commonArgs;
+            source-warden-fmt = craneLib.cargoFmt commonArgs;
             # pre-commit-checks to be installed for the dev environment
             pre-commit-check = pre-commit-hooks.lib.${system}.run {
               src = ./.;

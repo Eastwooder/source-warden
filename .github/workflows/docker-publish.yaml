@@ -36,7 +36,7 @@ jobs:
       - name: Build and load Docker image
         run: |
           nix build .#server-docker-stream && ./result | docker load
-          docker tag source-fox:latest ${{ env.REGISTRY }}/source-fox:latest
+          docker tag source-fox:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
       - name: Push Docker image
         run: |
-          docker push ${{ env.REGISTRY }}/source-fox:latest
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

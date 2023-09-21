@@ -67,9 +67,15 @@
           };
 
           # declare the build inputs used to build the projects
-          nativeBuildInputs = with pkgs; [ rustToolchain pkg-config ];
+          nativeBuildInputs = with pkgs; [ rustToolchain pkg-config ] ++ macosBuildInputs;
           # declare the build inputs used to link and run the projects, will be included in the final artifact container
           buildInputs = with pkgs; [ openssl sqlite ];
+          macosBuildInputs = with pkgs.darwin.apple_sdk.frameworks;
+            [ ]
+            ++ (nixpkgs.lib.optionals (nixpkgs.lib.hasSuffix "-darwin" system) [
+              Security
+              CoreFoundation
+            ]);
 
           # declare build arguments
           commonArgs = {
@@ -102,6 +108,20 @@
             cargoExtraArgs = "-p server";
             CLIENT_DIST = service-ui;
           });
+
+          serverOci = {
+            name = "source-fox";
+            tag = "latest";
+            config = {
+              Cmd = [ "${server}/bin/server" ];
+            };
+          };
+          serverOciImage = pkgs.dockerTools.buildImage ({
+            copyToRoot = [ server ];
+          } // serverOci);
+          serverOciStream = pkgs.dockerTools.streamLayeredImage ({
+            contents = [ server ];
+          } // serverOci);
         in
         with pkgs;
         {
@@ -136,6 +156,8 @@
           # packages to build and provide
           packages = {
             inherit server service-ui;
+            server-docker = serverOciImage;
+            server-docker-stream = serverOciStream;
             default = server;
             about = pkgs.writeScriptBin "about" ''
               #!/bin/sh

@@ -67,7 +67,11 @@
           };
 
           # declare the build inputs used to build the projects
-          nativeBuildInputs = with pkgs; [ rustToolchain pkg-config ] ++ macosBuildInputs;
+          nativeBuildInputs = with pkgs; [
+            rustToolchain
+            pkg-config
+            act
+          ] ++ macosBuildInputs;
           # declare the build inputs used to link and run the projects, will be included in the final artifact container
           buildInputs = with pkgs; [ openssl sqlite ];
           macosBuildInputs = with pkgs.darwin.apple_sdk.frameworks;

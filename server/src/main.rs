@@ -28,6 +28,13 @@ pub(crate) fn setup_tracing() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[cfg(debug_assertions)]
+async fn root() -> String {
+    let serve = std::env::var("CLIENT_DIST").unwrap();
+    format!("Hello {serve}")
+}
+
+#[cfg(not(debug_assertions))]
 async fn root() -> &'static str {
     const SERVE: &str = env!("CLIENT_DIST");
     const_format::concatcp!("Hello ", SERVE)

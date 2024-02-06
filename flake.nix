@@ -13,10 +13,11 @@
       url = "github:ipetkov/crane";
       inputs = {
         nixpkgs.follows = "nixpkgs";
-        rust-overlay.follows = "rust-overlay";
-        flake-utils.follows = "flake-utils";
       };
     };
+    # The version of wasm-bindgen-cli needs to match the version in Cargo.lock
+    # Update this to include the version you need
+    nixpkgs-for-wasm-bindgen.url = "github:NixOS/nixpkgs/4e6868b1aa3766ab1de169922bb3826143941973";
     pre-commit-hooks = {
       url = "github:cachix/pre-commit-hooks.nix";
       inputs = {
@@ -25,7 +26,7 @@
       };
     };
   };
-  outputs = { self, nixpkgs, flake-utils, rust-overlay, crane, pre-commit-hooks }:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay, crane, nixpkgs-for-wasm-bindgen, pre-commit-hooks }:
     flake-utils.lib.eachDefaultSystem
       (system:
         let
@@ -36,12 +37,16 @@
 
           # import and bind toolchain to the provided `rust-toolchain.toml` in the root directory
           rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-          rustToolchainWasm = pkgs.rust-bin.stable.latest.default.override {
+          rustToolchainWasm = rustToolchain.override {
             # Set the build targets supported by the toolchain, wasm32-unknown-unknown is required for trunk.
             targets = [ "wasm32-unknown-unknown" ];
           };
           craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
-          craneLibWasm = (crane.mkLib pkgs).overrideToolchain rustToolchainWasm;
+          craneLibWasm = ((crane.mkLib pkgs).overrideToolchain rustToolchainWasm).overrideScope' (_final: _prev: {
+            # The version of wasm-bindgen-cli needs to match the version in Cargo.lock. You
+            # can unpin this if your nixpkgs commit contains the appropriate wasm-bindgen-cli version
+            inherit (import nixpkgs-for-wasm-bindgen { inherit system; }) wasm-bindgen-cli;
+          });
 
           # declare the sources
           src = pkgs.lib.cleanSourceWith {
@@ -104,6 +109,12 @@
             pname = "service-ui";
             cargoExtraArgs = "-p service-ui";
             trunkIndexPath = "service-ui/index.html";
+            # The version of wasm-bindgen-cli here must match the one from Cargo.lock.
+            wasm-bindgen-cli = pkgs.wasm-bindgen-cli.override {
+              version = "0.2.90";
+              hash = "sha256-X8+DVX7dmKh7BgXqP7Fp0smhup5OO8eWEhn26ODYbkQ=";
+              cargoHash = "sha256-ckJxAR20GuVGstzXzIj1M0WBFj5eJjrO2/DRMUK5dwM=";
+            };
           });
 
           server = craneLib.buildPackage (commonArgs // {

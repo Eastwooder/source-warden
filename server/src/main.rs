@@ -6,7 +6,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     setup_tracing()?;
 
-    let app = Router::new().route("/", get(root));
+    let app = Router::new().route("/ui", get(frontend_ui));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     tracing::debug!("listening on {}", addr);
@@ -29,13 +29,13 @@ pub(crate) fn setup_tracing() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(debug_assertions)]
-async fn root() -> String {
+async fn frontend_ui() -> String {
     let serve = std::env::var("CLIENT_DIST").unwrap();
     format!("Hello {serve}")
 }
 
 #[cfg(not(debug_assertions))]
-async fn root() -> &'static str {
+async fn frontend_ui() -> &'static str {
     const SERVE: &str = env!("CLIENT_DIST");
     const_format::concatcp!("Hello ", SERVE)
 }

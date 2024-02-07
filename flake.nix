@@ -36,13 +36,11 @@
           };
 
           # import and bind toolchain to the provided `rust-toolchain.toml` in the root directory
-          rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-          rustToolchainWasm = rustToolchain.override {
+          rustToolchain = (pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
             # Set the build targets supported by the toolchain, wasm32-unknown-unknown is required for trunk.
             targets = [ "wasm32-unknown-unknown" ];
           };
-          craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
-          craneLibWasm = ((crane.mkLib pkgs).overrideToolchain rustToolchainWasm).overrideScope' (_final: _prev: {
+          craneLib = ((crane.mkLib pkgs).overrideToolchain rustToolchain).overrideScope' (_final: _prev: {
             # The version of wasm-bindgen-cli needs to match the version in Cargo.lock. You
             # can unpin this if your nixpkgs commit contains the appropriate wasm-bindgen-cli version
             inherit (import nixpkgs-for-wasm-bindgen { inherit system; }) wasm-bindgen-cli;
@@ -67,7 +65,7 @@
               # Include additional assets we may have
               (pkgs.lib.hasInfix "/assets/" path) ||
               # Default filter from crane (allow .rs files)
-              (craneLibWasm.filterCargoSources path type)
+              (craneLib.filterCargoSources path type)
             ;
           };
 
@@ -99,12 +97,12 @@
 
           # Cargo artifact dependency output
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-          cargoArtifactsWasm = craneLibWasm.buildDepsOnly (wasmArgs // {
+          cargoArtifactsWasm = craneLib.buildDepsOnly (wasmArgs // {
             doCheck = false;
           });
 
           # Actual targets to be built and executed
-          service-ui = craneLibWasm.buildTrunkPackage (wasmArgs // {
+          service-ui = craneLib.buildTrunkPackage (wasmArgs // {
             inherit cargoArtifactsWasm;
             pname = "service-ui";
             cargoExtraArgs = "-p service-ui";
@@ -187,7 +185,7 @@
           };
 
           # development environment provided with all bells and whistles included
-          devShells.default = mkShell {
+          devShells.default = craneLib.devShell {
             inherit (self.checks.${system}.pre-commit-check) shellHook;
             inputsFrom = [
               server

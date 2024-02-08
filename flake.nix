@@ -33,11 +33,20 @@
           overlays = [ (import rust-overlay) ];
           pkgs = import nixpkgs {
             inherit system overlays;
+            # config.allowUnfreePredicate = pkg: builtins.elem (nixpkgs.lib.getName pkg) [
+            #   # "vscode-with-extensions-1.86.0"
+            #   "vscode-extension-ms-vscode-remote-remote-containers-0.305.0"
+            # ];
+            config.allowUnfree = true;
           };
 
           # import and bind toolchain to the provided `rust-toolchain.toml` in the root directory
           rustToolchain = (pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
             # Set the build targets supported by the toolchain, wasm32-unknown-unknown is required for trunk.
+            extensions = [
+              "rust-src" # needed by rust-analyzer vscode extension when installed through internet
+              "rust-analyzer"
+            ];
             targets = [ "wasm32-unknown-unknown" ];
           };
           craneLib = ((crane.mkLib pkgs).overrideToolchain rustToolchain).overrideScope' (_final: _prev: {
@@ -191,8 +200,31 @@
               server
               service-ui
             ];
-            buildInputs = with pkgs; [
-              dive
+            packages = with pkgs; [
+              (vscode-with-extensions.override {
+                vscode = vscodium;
+                vscodeExtensions = with vscode-extensions; [
+                  # direnv/nix related
+                  mkhl.direnv
+                  jnoortheen.nix-ide
+                  arrterian.nix-env-selector
+
+                  # idea keybindings, if it would work
+                  # k--kato.intellij-idea-keybindings
+
+                  # rust related plugins
+                  rust-lang.rust-analyzer
+                  serayuzgur.crates
+                  # dustypomerleau.rust-syntax
+
+                  # unfree, but helpful stuff
+                  ms-vscode-remote.remote-containers
+                  ms-azuretools.vscode-docker
+
+                  # for debugging, currently fails
+                  # vadimcn.vscode-lldb
+                ];
+              })
             ];
           };
         });

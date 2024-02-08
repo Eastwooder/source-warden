@@ -9,6 +9,15 @@ A GitHub Application meant to watch over your source code.
 Either you install all required packages and tools, or you just use the
 provided developer environment with `nix develop`.
 
+### VSCode / Codium
+
+There is an embedded development environment in form of VSCode
+(in this case Codium) which has all necessary extensions pre-configured.
+This should help getting started without any kind of setup.
+
+If you're not using `direnv` just run `nix develop -c codium .`,
+otherwise `codium` will be on the path and `codium .` will suffice.
+
 ## Running the server
 
 To run the server your can just execute `nix run .#server`.

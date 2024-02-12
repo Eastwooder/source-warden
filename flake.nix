@@ -211,9 +211,6 @@
                   jnoortheen.nix-ide
                   arrterian.nix-env-selector
 
-                  # idea keybindings, if it would work
-                  # k--kato.intellij-idea-keybindings
-
                   # rust related plugins
                   rust-lang.rust-analyzer
                   serayuzgur.crates
@@ -225,7 +222,12 @@
 
                   # for debugging, currently fails
                   # vadimcn.vscode-lldb
-                ];
+                ] ++ vscode-utils.extensionsFromVscodeMarketplace [{
+                  name = "intellij-idea-keybindings";
+                  publisher = "k--kato";
+                  version = "1.5.13";
+                  sha256 = "sha256-IewHupCMUIgtMLcMV86O0Q1n/0iUgknHMR8m8fci5OU=";
+                }];
               })
             ];
           };

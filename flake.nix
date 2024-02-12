@@ -200,6 +200,8 @@
               server
               service-ui
             ];
+            # used by codium - pins the rust-analyzer version to this project's rust version
+            RUST_ANALYZER_SERVER_PATH = "${rustToolchain}/bin/rust-analyzer";
             packages = with pkgs; [
               (vscode-with-extensions.override {
                 vscode = vscodium;

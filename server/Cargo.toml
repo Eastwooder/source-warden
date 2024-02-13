@@ -4,9 +4,27 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.6.20", features = ["tracing", "macros", "headers"] }
-const_format = { version = "0.2.31", features = ["fmt"] }
-serde = { workspace = true }
-tokio = { version = "1.32.0", features = ["full", "tracing"] }
+async-trait = "0.1.77"
+axum = { version = "0.7.4", features = ["tracing", "macros"] }
+base64 = "0.21.7"
+const_format = { version = "0.2.32", features = ["fmt"] }
+envious = "0.2.2"
+hex = "0.4.3"
+jsonwebtoken = "9.2.0"
+octocrab = { version = "0.34.1", features = ["hyper-tls"] }
+orion = "0.17.6"
+rand = "0.8.5"
+rand_chacha = "0.3.1"
+rsa = {version = "0.9.6", features = ["pem"]}
+rustls = "0.22.2"
+secrecy = { version = "0.8.0", features = ["bytes"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = "1.0.113"
+sha2 = "0.10.8"
+thiserror = "1.0.57"
+tokio = { version = "1.36.0", features = ["full", "tracing"] }
+tower = "0.4.13"
+tower-http = "0.5.1"
 tracing = { workspace = true }
-tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json", "local-time"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "local-time"] }
+webpki = "0.22.4"

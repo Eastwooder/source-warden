@@ -8,28 +8,28 @@ use config::GitHubAppConfiguration;
 pub use routes::metrics::track_metrics;
 use tokio::net::TcpListener;
 
-pub async fn main_app(app_config: GitHubAppConfiguration) -> Result<(), std::io::Error> {
-    let main_app = Router::new()
+pub async fn public_app(app_config: GitHubAppConfiguration) -> Result<(), std::io::Error> {
+    let routes = Router::new()
         .merge(routes::ui::router(&app_config))
         .merge(routes::event_handler::router(&app_config))
         .route_layer(from_fn(track_metrics));
 
-    let main_listener = {
+    let listener = {
         let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
         tracing::debug!("going to listen on {}", addr);
         TcpListener::bind(addr).await?
     };
 
-    axum::serve(main_listener, main_app).await
+    axum::serve(listener, routes).await
 }
 
-pub async fn metrics_app() -> Result<(), std::io::Error> {
-    let metrics_app = routes::metrics::router();
-    let metrics_listener = {
+pub async fn internal_app() -> Result<(), std::io::Error> {
+    let routes = routes::metrics::router();
+    let listener = {
         let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
         tracing::debug!("going to listen on {}", addr);
         TcpListener::bind(addr).await?
     };
 
-    axum::serve(metrics_listener, metrics_app).await
+    axum::serve(listener, routes).await
 }

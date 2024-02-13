@@ -8,7 +8,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     setup_tracing()?;
     let app_config = load_github_app_config().unwrap_or(create_dummy_config());
 
-    tokio::try_join!(server::main_app(app_config), server::metrics_app())?;
+    tokio::try_join!(server::public_app(app_config), server::internal_app())?;
     Ok(())
 }
 

@@ -26,12 +26,16 @@ pub fn setup_metrics_recorder() -> PrometheusHandle {
 }
 
 pub async fn track_metrics(req: Request, next: Next) -> impl IntoResponse {
+    const UNKNOWN_PATH: &'static str = "/<unknown>";
+
     let start = Instant::now();
-    let path = if let Some(matched_path) = req.extensions().get::<MatchedPath>() {
-        matched_path.as_str().to_owned()
-    } else {
-        req.uri().path().to_owned()
-    };
+    let path = req
+        .extensions()
+        .get::<MatchedPath>()
+        .map(|matched| matched.as_str())
+        .unwrap_or(UNKNOWN_PATH)
+        .to_owned();
+
     let method = req.method().clone();
 
     let response = next.run(req).await;

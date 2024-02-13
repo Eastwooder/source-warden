@@ -17,7 +17,9 @@ use thiserror::Error;
 
 use crate::config::GitHubAppConfiguration;
 
-use self::extractors::{ExtractContentLength, ExtractSignatureHeader, Sha256VerificationSignature};
+use self::extractors::{
+    ExtractContentLength, ExtractEventKind, ExtractSignatureHeader, Sha256VerificationSignature,
+};
 
 mod extractors;
 
@@ -37,8 +39,11 @@ struct ConfigState {
     webhook_secret: Arc<SecretKey>,
 }
 
-async fn handle_github_event(body: String) -> impl IntoResponse {
-    tracing::error!(len = body.len(), body = body, "logic starts now");
+async fn handle_github_event(
+    ExtractEventKind(kind): ExtractEventKind,
+    body: String,
+) -> impl IntoResponse {
+    tracing::error!(?kind, len = body.len(), body = body, "logic starts now");
     "hello world"
 }
 
@@ -147,6 +152,7 @@ mod test {
         let body_hmac = calc_hmac_for_body(&config.webhook_secret, &body);
         let request = Request::builder()
             .uri("/event_handler")
+            .header("X-GitHub-Event", "pull_request.*")
             .header("x-hub-signature-256", format!("sha256={body_hmac}"))
             .header("Content-Length", body.len())
             .body(Body::from(body))
@@ -168,6 +174,7 @@ mod test {
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
         let request = Request::builder()
             .uri("/event_handler")
+            .header("X-GitHub-Event", "pull_request.*")
             .header("Content-Length", body.len())
             .body(Body::from(body))
             .unwrap();
@@ -185,6 +192,7 @@ mod test {
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
         let request = Request::builder()
             .uri("/event_handler")
+            .header("X-GitHub-Event", "pull_request.*")
             .header(
                 "x-hub-signature-256",
                 "sha256=46288437613044114D21E7FAD79837C12336202F4C85008548FB226693426F56",

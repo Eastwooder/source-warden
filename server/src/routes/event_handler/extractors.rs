@@ -41,13 +41,14 @@ where
     type Rejection = (StatusCode, &'static str);
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        static HEADER: HeaderName = HeaderName::from_static("x-hub-signature-256");
-        if let Some(signature) = parts.headers.get(&HEADER) {
+        const HEADER: HeaderName = HeaderName::from_static("x-hub-signature-256");
+        if let Some(signature) = parts.headers.get(HEADER) {
             let (kind, hmac) = signature
                 .to_str()
                 .map_err(|_| (StatusCode::BAD_REQUEST, "not a valid signature"))?
                 .split_once('=')
                 .ok_or((StatusCode::BAD_REQUEST, "not a valid signature pair"))?;
+            hex::decode(hmac).map_err(|_| (StatusCode::BAD_REQUEST, "not a valid hmac"))?;
             Ok(ExtractSignatureHeader((kind, hmac).try_into()?))
         } else {
             Err((
@@ -82,5 +83,47 @@ where
                 )
             })?;
         Ok(Self(content_length))
+    }
+}
+
+pub(crate) struct ExtractEventKind(pub(crate) RequestKind);
+
+#[derive(Debug)]
+pub(crate) enum RequestKind {
+    Installation,
+    Unknown(String),
+}
+
+impl From<&'_ str> for RequestKind {
+    fn from(value: &'_ str) -> Self {
+        match value {
+            "installation" => Self::Installation,
+            other => Self::Unknown(other.to_owned()),
+        }
+    }
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for ExtractEventKind
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, &'static str);
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        const HEADER: HeaderName = HeaderName::from_static("x-github-event");
+        let Some(request_kind) = parts.headers.get(HEADER) else {
+            return Err((StatusCode::BAD_REQUEST, "github event header is missing"));
+        };
+        let kind = request_kind
+            .to_str()
+            .map_err(|_| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    "github event header is not valid UTF-8",
+                )
+            })?
+            .to_lowercase();
+        Ok(Self(kind.as_str().into()))
     }
 }

@@ -1,3 +1,4 @@
+use axum::middleware::from_fn;
 use axum::Router;
 use octocrab::models::AppId;
 use server::config::{load_github_app_config, GitHubAppConfiguration};
@@ -33,16 +34,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     // let app_config = config::load_github_app_config()?;
 
-    let app = Router::new()
+    let main_app = Router::new()
         .merge(routes::ui::router(&app_config))
-        .merge(routes::event_handler::router(&app_config));
+        .merge(routes::event_handler::router(&app_config))
+        .route_layer(from_fn(server::track_metrics));
 
-    let listener = {
+    let main_listener = {
         let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
         tracing::debug!("going to listen on {}", addr);
         TcpListener::bind(addr).await?
     };
-    axum::serve(listener, app).await?;
+
+    let main_app = async { axum::serve(main_listener, main_app).await };
+
+    let metrics_app = routes::metrics::router();
+    let metrics_listener = {
+        let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
+        tracing::debug!("going to listen on {}", addr);
+        TcpListener::bind(addr).await?
+    };
+
+    let metrics_app = async { axum::serve(metrics_listener, metrics_app).await };
+
+    tokio::try_join!(main_app, metrics_app)?;
 
     Ok(())
 }

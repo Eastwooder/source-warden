@@ -1,26 +1,40 @@
 use axum::{
     async_trait,
-    extract::{FromRequestParts, Request},
+    extract::{FromRequestParts, Request, State},
     http::{request::Parts, HeaderName, StatusCode},
-    middleware::{from_fn, Next},
+    middleware::{from_fn, from_fn_with_state, Next},
     response::{IntoResponse, Response},
     routing::any,
     Router,
 };
+use jsonwebtoken::EncodingKey;
 
 use crate::config::GitHubAppConfiguration;
 
-pub fn router(_: &GitHubAppConfiguration) -> Router {
+pub fn router(config: &GitHubAppConfiguration) -> Router {
+    let signature_verification_state = ConfigState {
+        app_key: config.app_key.clone(),
+    };
     Router::new()
         .route("/event_handler", any(handle_github_event))
-        .layer(from_fn(ensure_payload_is_valid))
+        .layer(from_fn_with_state(
+            signature_verification_state,
+            ensure_payload_is_valid,
+        ))
+}
+
+#[derive(Clone)]
+struct ConfigState {
+    app_key: EncodingKey,
 }
 
 async fn handle_github_event() -> impl IntoResponse {
-    ""
+    tracing::error!("logic starts now");
+    "hello world"
 }
 
 async fn ensure_payload_is_valid(
+    State(ConfigState { app_key }): State<ConfigState>,
     ExtractSignatureHeader(_signature): ExtractSignatureHeader,
     request: Request,
     next: Next,

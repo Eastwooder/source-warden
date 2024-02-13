@@ -1,32 +1,35 @@
-use axum::{extract::MatchedPath, middleware::Next};
-use axum_core::{extract::Request, response::IntoResponse};
-use tokio::time::Instant;
-
 pub mod config;
 pub mod routes;
 
-pub async fn track_metrics(req: Request, next: Next) -> impl IntoResponse {
-    let start = Instant::now();
-    let path = if let Some(matched_path) = req.extensions().get::<MatchedPath>() {
-        matched_path.as_str().to_owned()
-    } else {
-        req.uri().path().to_owned()
+use std::net::SocketAddr;
+
+use axum::{middleware::from_fn, Router};
+use config::GitHubAppConfiguration;
+pub use routes::metrics::track_metrics;
+use tokio::net::TcpListener;
+
+pub async fn main_app(app_config: GitHubAppConfiguration) -> Result<(), std::io::Error> {
+    let main_app = Router::new()
+        .merge(routes::ui::router(&app_config))
+        .merge(routes::event_handler::router(&app_config))
+        .route_layer(from_fn(track_metrics));
+
+    let main_listener = {
+        let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+        tracing::debug!("going to listen on {}", addr);
+        TcpListener::bind(addr).await?
     };
-    let method = req.method().clone();
 
-    let response = next.run(req).await;
+    axum::serve(main_listener, main_app).await
+}
 
-    let latency = start.elapsed().as_secs_f64();
-    let status = response.status().as_u16().to_string();
+pub async fn metrics_app() -> Result<(), std::io::Error> {
+    let metrics_app = routes::metrics::router();
+    let metrics_listener = {
+        let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
+        tracing::debug!("going to listen on {}", addr);
+        TcpListener::bind(addr).await?
+    };
 
-    let labels = [
-        ("method", method.to_string()),
-        ("path", path),
-        ("status", status),
-    ];
-
-    metrics::counter!("http_requests_total", &labels).increment(1);
-    metrics::histogram!("http_requests_duration_seconds", &labels).record(latency);
-
-    response
+    axum::serve(metrics_listener, metrics_app).await
 }

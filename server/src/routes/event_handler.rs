@@ -144,7 +144,6 @@ mod test {
     #[tracing_test::traced_test]
     #[tokio::test]
     async fn test_happy_path() {
-        tracing::info!("what");
         let (config, _) = create_test_config();
         let app = super::router(&config);
 

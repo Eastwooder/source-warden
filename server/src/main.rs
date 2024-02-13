@@ -1,19 +1,31 @@
-use axum::middleware::from_fn;
-use axum::Router;
+use jsonwebtoken::EncodingKey;
 use octocrab::models::AppId;
+use orion::hazardous::mac::hmac::sha256::SecretKey;
 use server::config::{load_github_app_config, GitHubAppConfiguration};
-use server::routes;
-use std::net::SocketAddr;
-use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     setup_tracing()?;
+    let app_config = load_github_app_config().unwrap_or(create_dummy_config());
 
-    use jsonwebtoken::EncodingKey;
-    use orion::hazardous::mac::hmac::sha256::SecretKey as Sha256SecretKey;
-    let app_config = load_github_app_config().unwrap_or(GitHubAppConfiguration {
-        webhook_secret: Sha256SecretKey::generate().into(),
+    tokio::try_join!(server::main_app(app_config), server::metrics_app())?;
+    Ok(())
+}
+
+fn setup_tracing() -> Result<(), Box<dyn std::error::Error>> {
+    use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_default_env())
+        .try_init()?;
+
+    Ok(())
+}
+
+fn create_dummy_config() -> GitHubAppConfiguration {
+    GitHubAppConfiguration {
+        webhook_secret: SecretKey::generate().into(),
         app_identifier: AppId(1),
         app_key: {
             use rand::SeedableRng;
@@ -31,43 +43,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             EncodingKey::from_rsa_pem(cert_pem_str.as_bytes()).unwrap()
         },
-    });
-    // let app_config = config::load_github_app_config()?;
-
-    let main_app = Router::new()
-        .merge(routes::ui::router(&app_config))
-        .merge(routes::event_handler::router(&app_config))
-        .route_layer(from_fn(server::track_metrics));
-
-    let main_listener = {
-        let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
-        tracing::debug!("going to listen on {}", addr);
-        TcpListener::bind(addr).await?
-    };
-
-    let main_app = async { axum::serve(main_listener, main_app).await };
-
-    let metrics_app = routes::metrics::router();
-    let metrics_listener = {
-        let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
-        tracing::debug!("going to listen on {}", addr);
-        TcpListener::bind(addr).await?
-    };
-
-    let metrics_app = async { axum::serve(metrics_listener, metrics_app).await };
-
-    tokio::try_join!(main_app, metrics_app)?;
-
-    Ok(())
-}
-
-pub(crate) fn setup_tracing() -> Result<(), Box<dyn std::error::Error>> {
-    use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-
-    tracing_subscriber::registry()
-        .with(fmt::layer())
-        .with(EnvFilter::from_default_env())
-        .try_init()?;
-
-    Ok(())
+    }
 }

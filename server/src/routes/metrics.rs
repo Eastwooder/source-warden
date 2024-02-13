@@ -26,7 +26,7 @@ pub fn setup_metrics_recorder() -> PrometheusHandle {
 }
 
 pub async fn track_metrics(req: Request, next: Next) -> impl IntoResponse {
-    const UNKNOWN_PATH: &'static str = "/<unknown>";
+    const UNKNOWN_PATH: &str = "/<unknown>";
 
     let path = req
         .extensions()

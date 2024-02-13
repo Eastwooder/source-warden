@@ -10,8 +10,8 @@ use tokio::net::TcpListener;
 
 pub async fn public_app(app_config: GitHubAppConfiguration) -> Result<(), std::io::Error> {
     let routes = Router::new()
-        .merge(routes::ui::router(&app_config))
-        .merge(routes::event_handler::router(&app_config))
+        .merge(routes::ui::router())
+        .merge(routes::event_handler::router(app_config))
         .route_layer(from_fn(track_metrics));
 
     let listener = {

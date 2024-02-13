@@ -54,7 +54,7 @@ where
             .to_str()?
             .split_once('=')
             .ok_or(SignatureHeaderError::NotAPair)?;
-        Ok(ExtractSignatureHeader((kind, hmac).try_into()?))
+        Ok(Self((kind, hmac).try_into()?))
     }
 }
 
@@ -82,6 +82,42 @@ impl IntoResponse for SignatureHeaderError {
     }
 }
 
+pub(crate) struct ExtractGitHubEventHeader(String);
+
+#[async_trait]
+impl<S> FromRequestParts<S> for ExtractGitHubEventHeader
+where
+    S: Send + Sync,
+{
+    type Rejection = GitHubEventHeaderError;
+
+    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
+        static HEADER: HeaderName = HeaderName::from_static("x-github-event");
+        let Some(signature) = parts.headers.get(&HEADER) else {
+            return Err(GitHubEventHeaderError::MissingHeader);
+        };
+        Ok(Self(signature.to_str()?.to_owned()))
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum GitHubEventHeaderError {
+    #[error("Missing header")]
+    MissingHeader,
+    #[error("The header value does not consist of a valid string")]
+    InvalidValue(#[from] ToStrError),
+}
+
+impl IntoResponse for GitHubEventHeaderError {
+    fn into_response(self) -> Response {
+        match self {
+            e @ GitHubEventHeaderError::MissingHeader => (StatusCode::BAD_REQUEST, e.to_string()),
+            e @ GitHubEventHeaderError::InvalidValue(_) => (StatusCode::BAD_REQUEST, e.to_string()),
+        }
+        .into_response()
+    }
+}
+
 pub(crate) struct GitHubEvent(pub(crate) WebhookEvent);
 
 #[async_trait]
@@ -92,22 +128,18 @@ impl FromRequest<ConfigState> for GitHubEvent {
         request: Request,
         ConfigState { webhook_secret }: &ConfigState,
     ) -> Result<Self, Self::Rejection> {
-        static HEADER: HeaderName = HeaderName::from_static("x-github-event");
         let (mut parts, body) = request.into_parts();
-        let Some(request_kind) = parts.headers.get(&HEADER) else {
-            return Err(GitHubEventExtractionError::MissingEventHeader);
-        };
-        let kind = request_kind.to_str()?.to_owned();
 
+        let ExtractGitHubEventHeader(event) =
+            ExtractGitHubEventHeader::from_request_parts(&mut parts, &()).await?;
         let ExtractSignatureHeader(signature) =
             ExtractSignatureHeader::from_request_parts(&mut parts, &()).await?;
 
         let body = body.collect().await?.to_bytes();
 
         verify_signature(&signature, webhook_secret, &body)?;
-
         Ok(Self(
-            WebhookEvent::try_from_header_and_body(&kind, &body)
+            WebhookEvent::try_from_header_and_body(&event, &body)
                 .map_err(GitHubEventExtractionError::EventUnparsable)?,
         ))
     }
@@ -130,8 +162,6 @@ fn verify_signature(
 
 #[derive(Debug, Error)]
 pub enum GitHubEventExtractionError {
-    #[error("Missing event header")]
-    MissingEventHeader,
     #[error("The header value does not consist of a valid string")]
     InvalidValue(#[from] ToStrError),
     #[error("Unable to calculate the signature of the body")]
@@ -139,7 +169,9 @@ pub enum GitHubEventExtractionError {
     #[error("Signature of body does not match the header")]
     SignatureMismatch,
     #[error("Unable to verify the signature: {0}")]
-    SignatureError(#[from] SignatureHeaderError),
+    SignatureHeader(#[from] SignatureHeaderError),
+    #[error("Unable to fetch the event name: {0}")]
+    GitHubHeader(#[from] GitHubEventHeaderError),
     #[error("Unable to parse and process the request")]
     EventUnparsable(serde_json::Error),
     #[error("Something went wrong whilst processing the body")]
@@ -149,9 +181,6 @@ pub enum GitHubEventExtractionError {
 impl IntoResponse for GitHubEventExtractionError {
     fn into_response(self) -> Response {
         match self {
-            e @ GitHubEventExtractionError::MissingEventHeader => {
-                (StatusCode::BAD_REQUEST, e.to_string())
-            }
             e @ GitHubEventExtractionError::InvalidValue(_) => {
                 (StatusCode::BAD_REQUEST, e.to_string())
             }
@@ -161,7 +190,7 @@ impl IntoResponse for GitHubEventExtractionError {
             e @ GitHubEventExtractionError::SignatureMismatch => {
                 (StatusCode::BAD_REQUEST, e.to_string())
             }
-            e @ GitHubEventExtractionError::SignatureError(_) => {
+            e @ GitHubEventExtractionError::SignatureHeader(_) => {
                 (StatusCode::BAD_REQUEST, e.to_string())
             }
             e @ GitHubEventExtractionError::EventUnparsable(_) => {
@@ -169,6 +198,9 @@ impl IntoResponse for GitHubEventExtractionError {
             }
             e @ GitHubEventExtractionError::AxumError(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            }
+            e @ GitHubEventExtractionError::GitHubHeader(_) => {
+                (StatusCode::BAD_REQUEST, e.to_string())
             }
         }
         .into_response()

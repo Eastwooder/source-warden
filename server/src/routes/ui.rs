@@ -1,8 +1,6 @@
 use axum::{routing::get, Router};
 
-use crate::config::GitHubAppConfiguration;
-
-pub fn router(_: &GitHubAppConfiguration) -> Router {
+pub fn router() -> Router {
     Router::new().route("/ui", get(frontend_ui))
 }
 

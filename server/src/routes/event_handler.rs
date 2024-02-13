@@ -9,14 +9,18 @@ use crate::config::GitHubAppConfiguration;
 use self::extractors::GitHubEvent;
 
 mod extractors;
+mod remote;
 
-pub fn router(config: &GitHubAppConfiguration) -> Router {
+pub fn router(config: GitHubAppConfiguration) -> Router {
+    let remote_config = remote::authenticate(config.app_identifier, config.app_key);
     let signature_config = ConfigState {
         webhook_secret: config.webhook_secret.clone(),
     };
     Router::new().route(
         "/event_handler",
-        any(handle_github_event).with_state(signature_config),
+        any(handle_github_event)
+            .with_state(signature_config)
+            .with_state(remote_config),
     )
 }
 
@@ -46,7 +50,7 @@ mod test {
     #[tokio::test]
     async fn test_happy_path() {
         let (config, _) = create_test_config();
-        let app = super::router(&config);
+        let app = super::router(config.clone());
 
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
         let body_hmac = calc_hmac_for_body(&config.webhook_secret, &body);
@@ -69,7 +73,7 @@ mod test {
     #[tokio::test]
     async fn test_missing_signature() {
         let (config, _) = create_test_config();
-        let app = super::router(&config);
+        let app = super::router(config);
 
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
         let request = Request::builder()
@@ -86,7 +90,7 @@ mod test {
     #[tokio::test]
     async fn test_wrong_signature() {
         let (config, _) = create_test_config();
-        let app = super::router(&config);
+        let app = super::router(config);
 
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
         let request = Request::builder()

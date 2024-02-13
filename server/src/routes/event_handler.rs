@@ -6,7 +6,7 @@ use orion::hazardous::mac::hmac::sha256::SecretKey;
 
 use crate::config::GitHubAppConfiguration;
 
-use self::extractors::ExtractEventKind;
+use self::extractors::GitHubEvent;
 
 mod extractors;
 
@@ -25,7 +25,7 @@ struct ConfigState {
     webhook_secret: Arc<SecretKey>,
 }
 
-async fn handle_github_event(ExtractEventKind(event): ExtractEventKind) -> impl IntoResponse {
+async fn handle_github_event(GitHubEvent(event): GitHubEvent) -> impl IntoResponse {
     tracing::error!(kind = ?event, "logic starts now");
     "hello world"
 }

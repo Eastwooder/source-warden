@@ -8,7 +8,7 @@ use orion::{
 };
 use thiserror::Error;
 
-pub(crate) fn load_github_app_config() -> Result<GitHubAppConfiguration, ConfigurationError> {
+pub fn load_github_app_config() -> Result<GitHubAppConfiguration, ConfigurationError> {
     #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
     struct ApplicationRawConfig {
         #[serde(default)]
@@ -38,10 +38,10 @@ pub(crate) fn load_github_app_config() -> Result<GitHubAppConfiguration, Configu
 }
 
 #[derive(Clone)]
-pub(crate) struct GitHubAppConfiguration {
-    pub(crate) webhook_secret: Arc<Sha256SecretKey>,
-    pub(crate) app_identifier: AppId,
-    pub(crate) app_key: EncodingKey,
+pub struct GitHubAppConfiguration {
+    pub webhook_secret: Arc<Sha256SecretKey>,
+    pub app_identifier: AppId,
+    pub app_key: EncodingKey,
 }
 
 #[derive(Debug, Error)]

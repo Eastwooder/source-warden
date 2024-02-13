@@ -28,3 +28,6 @@ tower-http = "0.5.1"
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "local-time"] }
 webpki = "0.22.4"
+
+[dev-dependencies]
+axum-test = "14.3.0"

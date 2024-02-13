@@ -1,11 +1,9 @@
 use axum::Router;
-use config::GitHubAppConfiguration;
 use octocrab::models::AppId;
+use server::config::{load_github_app_config, GitHubAppConfiguration};
+use server::routes;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-
-mod config;
-mod routes;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,7 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     use jsonwebtoken::EncodingKey;
     use orion::hazardous::mac::hmac::sha256::SecretKey as Sha256SecretKey;
-    let app_config = config::load_github_app_config().unwrap_or(GitHubAppConfiguration {
+    let app_config = load_github_app_config().unwrap_or(GitHubAppConfiguration {
         webhook_secret: Sha256SecretKey::generate().into(),
         app_identifier: AppId(1),
         app_key: {

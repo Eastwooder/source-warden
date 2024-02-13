@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use axum::{
     extract::{FromRequest, FromRequestParts},
     http::{request::Parts, HeaderName},
 };
 use axum_core::{
-    extract::Request,
+    extract::{FromRef, Request},
     response::{IntoResponse, Response},
 };
 use hex::FromHexError;
@@ -13,8 +15,6 @@ use hyper::{header::ToStrError, StatusCode};
 use octocrab::models::webhook_events::WebhookEvent;
 use orion::hazardous::mac::hmac::sha256::{SecretKey, Tag};
 use thiserror::Error;
-
-use super::ConfigState;
 
 pub struct ExtractSignatureHeader(pub(crate) Sha256VerificationSignature);
 
@@ -121,14 +121,16 @@ impl IntoResponse for GitHubEventHeaderError {
 pub(crate) struct GitHubEvent(pub(crate) WebhookEvent);
 
 #[async_trait]
-impl FromRequest<ConfigState> for GitHubEvent {
+impl<S> FromRequest<S> for GitHubEvent
+where
+    S: Send + Sync,
+    Arc<SecretKey>: FromRef<S>,
+{
     type Rejection = GitHubEventExtractionError;
 
-    async fn from_request(
-        request: Request,
-        ConfigState { webhook_secret }: &ConfigState,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request(request: Request, webhook_secret: &S) -> Result<Self, Self::Rejection> {
         let (mut parts, body) = request.into_parts();
+        let webhook_secret = Arc::<SecretKey>::from_ref(webhook_secret);
 
         let ExtractGitHubEventHeader(event) =
             ExtractGitHubEventHeader::from_request_parts(&mut parts, &()).await?;
@@ -137,7 +139,7 @@ impl FromRequest<ConfigState> for GitHubEvent {
 
         let body = body.collect().await?.to_bytes();
 
-        verify_signature(&signature, webhook_secret, &body)?;
+        verify_signature(&signature, &webhook_secret, &body)?;
         Ok(Self(
             WebhookEvent::try_from_header_and_body(&event, &body)
                 .map_err(GitHubEventExtractionError::EventUnparsable)?,

@@ -1,11 +1,7 @@
-use std::sync::Arc;
-
 use envious::EnvDeserializationError;
 use jsonwebtoken::EncodingKey;
 use octocrab::models::AppId;
-use orion::{
-    errors::UnknownCryptoError, hazardous::mac::hmac::sha256::SecretKey as Sha256SecretKey,
-};
+use orion::{errors::UnknownCryptoError, hazardous::mac::hmac::sha256::SecretKey};
 use thiserror::Error;
 
 pub fn load_github_app_config() -> Result<GitHubAppConfiguration, ConfigurationError> {
@@ -25,8 +21,7 @@ pub fn load_github_app_config() -> Result<GitHubAppConfiguration, ConfigurationE
         env_config.build_from_env()?
     };
 
-    let webhook_secret =
-        Sha256SecretKey::from_slice(raw_config.github_webhook_secret.as_bytes())?.into();
+    let webhook_secret = SecretKey::from_slice(raw_config.github_webhook_secret.as_bytes())?;
     let app_identifier = AppId(raw_config.github_app_identifier);
     let app_key = EncodingKey::from_rsa_pem(raw_config.github_private_key.as_bytes())?;
 
@@ -37,9 +32,8 @@ pub fn load_github_app_config() -> Result<GitHubAppConfiguration, ConfigurationE
     })
 }
 
-#[derive(Clone)]
 pub struct GitHubAppConfiguration {
-    pub webhook_secret: Arc<Sha256SecretKey>,
+    pub webhook_secret: SecretKey,
     pub app_identifier: AppId,
     pub app_key: EncodingKey,
 }

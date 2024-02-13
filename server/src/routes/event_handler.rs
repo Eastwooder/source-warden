@@ -1,35 +1,52 @@
 use std::sync::Arc;
 
-use axum::{response::IntoResponse, routing::any, Router};
+use axum::{extract::State, response::IntoResponse, routing::any, Router};
 
+use axum_core::extract::FromRef;
 use orion::hazardous::mac::hmac::sha256::SecretKey;
 
 use crate::config::GitHubAppConfiguration;
 
-use self::extractors::GitHubEvent;
+use self::{extractors::GitHubEvent, remote::ApplicationAuthentication};
 
 mod extractors;
 mod remote;
 
-pub fn router(config: GitHubAppConfiguration) -> Router {
-    let remote_config = remote::authenticate(config.app_identifier, config.app_key);
+pub fn router(config: GitHubAppConfiguration) -> Result<Router, Box<dyn std::error::Error>> {
+    // FIXME: should I move the remote_config outside??
+    let remote_config = remote::authenticate(config.app_identifier, config.app_key)?;
     let signature_config = ConfigState {
-        webhook_secret: config.webhook_secret.clone(),
+        webhook_secret: config.webhook_secret.into(),
+        client: remote_config,
     };
-    Router::new().route(
+    Ok(Router::new().route(
         "/event_handler",
-        any(handle_github_event)
-            .with_state(signature_config)
-            .with_state(remote_config),
-    )
+        any(handle_github_event).with_state(signature_config),
+    ))
 }
 
 #[derive(Clone)]
 struct ConfigState {
     webhook_secret: Arc<SecretKey>,
+    client: ApplicationAuthentication,
 }
 
-async fn handle_github_event(GitHubEvent(event): GitHubEvent) -> impl IntoResponse {
+impl FromRef<ConfigState> for Arc<SecretKey> {
+    fn from_ref(input: &ConfigState) -> Self {
+        input.webhook_secret.clone()
+    }
+}
+
+impl FromRef<ConfigState> for ApplicationAuthentication {
+    fn from_ref(input: &ConfigState) -> Self {
+        input.client.clone()
+    }
+}
+
+async fn handle_github_event(
+    State(ApplicationAuthentication { client: _client }): State<ApplicationAuthentication>,
+    GitHubEvent(event): GitHubEvent,
+) -> impl IntoResponse {
     tracing::error!(kind = ?event, "logic starts now");
     "hello world"
 }
@@ -49,11 +66,11 @@ mod test {
     #[tracing_test::traced_test]
     #[tokio::test]
     async fn test_happy_path() {
-        let (config, _) = create_test_config();
-        let app = super::router(config.clone());
+        let (config, _, secret) = create_test_config();
+        let app = super::router(config).unwrap();
 
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
-        let body_hmac = calc_hmac_for_body(&config.webhook_secret, &body);
+        let body_hmac = calc_hmac_for_body(&secret, &body);
         let request = Request::builder()
             .uri("/event_handler")
             .header("X-GitHub-Event", "pull_request.*")
@@ -72,8 +89,8 @@ mod test {
     #[tracing_test::traced_test]
     #[tokio::test]
     async fn test_missing_signature() {
-        let (config, _) = create_test_config();
-        let app = super::router(config);
+        let (config, _, _) = create_test_config();
+        let app = super::router(config).unwrap();
 
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
         let request = Request::builder()
@@ -89,8 +106,8 @@ mod test {
     #[tracing_test::traced_test]
     #[tokio::test]
     async fn test_wrong_signature() {
-        let (config, _) = create_test_config();
-        let app = super::router(config);
+        let (config, _, _) = create_test_config();
+        let app = super::router(config).unwrap();
 
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
         let request = Request::builder()
@@ -107,7 +124,7 @@ mod test {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    fn create_test_config() -> (GitHubAppConfiguration, RsaPublicKey) {
+    fn create_test_config() -> (GitHubAppConfiguration, RsaPublicKey, SecretKey) {
         use jsonwebtoken::EncodingKey;
         use octocrab::models::AppId;
         use rand::SeedableRng;
@@ -125,11 +142,12 @@ mod test {
 
         (
             GitHubAppConfiguration {
-                webhook_secret: secret.into(),
+                webhook_secret: secret,
                 app_identifier: AppId(1),
                 app_key: { EncodingKey::from_rsa_pem(cert_pem_str.as_bytes()).unwrap() },
             },
             pub_key,
+            SecretKey::from_slice(&[0; 32]).unwrap(),
         )
     }
 

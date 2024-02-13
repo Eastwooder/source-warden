@@ -24,8 +24,9 @@ fn setup_tracing() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn create_dummy_config() -> GitHubAppConfiguration {
+    let secret = SecretKey::from_slice(&[0; 32]).unwrap();
     GitHubAppConfiguration {
-        webhook_secret: SecretKey::generate().into(),
+        webhook_secret: secret,
         app_identifier: AppId(1),
         app_key: {
             use rand::SeedableRng;

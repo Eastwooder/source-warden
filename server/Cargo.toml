@@ -9,7 +9,6 @@ axum = { version = "0.7.4", features = ["tracing", "macros"] }
 axum-core = "0.4.3"
 base64 = "0.21.7"
 bytes = "1.5.0"
-const_format = { version = "0.2.32", features = ["fmt"] }
 envious = "0.2.2"
 futures-util = "0.3.30"
 hex = "0.4.3"
@@ -24,15 +23,13 @@ rustls = "0.22.2"
 secrecy = { version = "0.8.0", features = ["bytes"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = "1.0.113"
-sha2 = "0.10.8"
 thiserror = "1.0.57"
 tokio = { version = "1.36.0", features = ["full", "tracing"] }
 tower = "0.4.13"
 tower-http = "0.5.1"
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "local-time"] }
-webpki = "0.22.4"
-tracing-test = "0.2.4"
 
 [dev-dependencies]
+tracing-test = "0.2.4"
 http-body-util = "0.1.0"

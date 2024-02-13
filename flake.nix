@@ -219,15 +219,20 @@
                   # unfree, but helpful stuff
                   ms-vscode-remote.remote-containers
                   ms-azuretools.vscode-docker
-
-                  # for debugging, currently fails
-                  # vadimcn.vscode-lldb
-                ] ++ vscode-utils.extensionsFromVscodeMarketplace [{
-                  name = "intellij-idea-keybindings";
-                  publisher = "k--kato";
-                  version = "1.5.13";
-                  sha256 = "sha256-IewHupCMUIgtMLcMV86O0Q1n/0iUgknHMR8m8fci5OU=";
-                }];
+                ] ++ vscode-utils.extensionsFromVscodeMarketplace [
+                  # {
+                  #   name = "vscode-lldb";
+                  #   publisher = "vadimcn";
+                  #   version = "1.10.0";
+                  #   sha256 = "sha256-RAKv7ESw0HG/avBOPE1CTr0THsB7UWx0haJVd/Dm9Gg=";
+                  # }
+                  {
+                    name = "intellij-idea-keybindings";
+                    publisher = "k--kato";
+                    version = "1.5.13";
+                    sha256 = "sha256-IewHupCMUIgtMLcMV86O0Q1n/0iUgknHMR8m8fci5OU=";
+                  }
+                ];
               })
             ];
           };

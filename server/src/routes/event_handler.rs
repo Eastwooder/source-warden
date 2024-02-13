@@ -39,11 +39,8 @@ struct ConfigState {
     webhook_secret: Arc<SecretKey>,
 }
 
-async fn handle_github_event(
-    ExtractEventKind(kind): ExtractEventKind,
-    body: String,
-) -> impl IntoResponse {
-    tracing::error!(?kind, len = body.len(), body = body, "logic starts now");
+async fn handle_github_event(ExtractEventKind(event): ExtractEventKind) -> impl IntoResponse {
+    tracing::error!(kind = ?event, "logic starts now");
     "hello world"
 }
 

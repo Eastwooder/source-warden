@@ -1,9 +1,13 @@
 use async_trait::async_trait;
 use axum::{
-    extract::FromRequestParts,
+    extract::{FromRequest, FromRequestParts},
     http::{request::Parts, HeaderName},
 };
+use axum_core::extract::Request;
+use bytes::Bytes;
+use http_body_util::BodyExt;
 use hyper::{header::CONTENT_LENGTH, StatusCode};
+use octocrab::models::webhook_events::WebhookEvent;
 use orion::hazardous::mac::hmac::sha256::Tag;
 
 pub struct ExtractSignatureHeader(pub(crate) Sha256VerificationSignature);
@@ -86,32 +90,19 @@ where
     }
 }
 
-pub(crate) struct ExtractEventKind(pub(crate) RequestKind);
-
-#[derive(Debug)]
-pub(crate) enum RequestKind {
-    Installation,
-    Unknown(String),
-}
-
-impl From<&'_ str> for RequestKind {
-    fn from(value: &'_ str) -> Self {
-        match value {
-            "installation" => Self::Installation,
-            other => Self::Unknown(other.to_owned()),
-        }
-    }
-}
+pub(crate) struct ExtractEventKind(pub(crate) WebhookEvent);
 
 #[async_trait]
-impl<S> FromRequestParts<S> for ExtractEventKind
+impl<S> FromRequest<S> for ExtractEventKind
 where
+    Bytes: FromRequest<S>,
     S: Send + Sync,
 {
     type Rejection = (StatusCode, &'static str);
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(request: Request, _state: &S) -> Result<Self, Self::Rejection> {
         const HEADER: HeaderName = HeaderName::from_static("x-github-event");
+        let (parts, body) = request.into_parts();
         let Some(request_kind) = parts.headers.get(HEADER) else {
             return Err((StatusCode::BAD_REQUEST, "github event header is missing"));
         };
@@ -123,7 +114,20 @@ where
                     "github event header is not valid UTF-8",
                 )
             })?
-            .to_lowercase();
-        Ok(Self(kind.as_str().into()))
+            .to_owned();
+
+        let body = body
+            .collect()
+            .await
+            .map_err(|_| (StatusCode::BAD_REQUEST, "can not read body"))?
+            .to_bytes();
+        let event = WebhookEvent::try_from_header_and_body(&kind, &body).map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "request is not a valid github event",
+            )
+        })?;
+
+        Ok(Self(event))
     }
 }

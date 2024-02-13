@@ -17,7 +17,7 @@ pub fn setup_metrics_recorder() -> PrometheusHandle {
 
     PrometheusBuilder::new()
         .set_buckets_for_metric(
-            Matcher::Full("http_requests_duration_seconds".to_string()),
+            Matcher::Full(REQUEST_DURATION.to_string()),
             EXPONENTIAL_SECONDS,
         )
         .unwrap()
@@ -28,15 +28,14 @@ pub fn setup_metrics_recorder() -> PrometheusHandle {
 pub async fn track_metrics(req: Request, next: Next) -> impl IntoResponse {
     const UNKNOWN_PATH: &'static str = "/<unknown>";
 
-    let start = Instant::now();
     let path = req
         .extensions()
         .get::<MatchedPath>()
         .map(|matched| matched.as_str())
         .unwrap_or(UNKNOWN_PATH)
         .to_owned();
-
     let method = req.method().clone();
+    let start = Instant::now();
 
     let response = next.run(req).await;
 
@@ -49,8 +48,11 @@ pub async fn track_metrics(req: Request, next: Next) -> impl IntoResponse {
         ("status", status),
     ];
 
-    metrics::counter!("http_requests_total", &labels).increment(1);
-    metrics::histogram!("http_requests_duration_seconds", &labels).record(latency);
+    metrics::counter!(SUM_REQUESTS, &labels).increment(1);
+    metrics::histogram!(REQUEST_DURATION, &labels).record(latency);
 
     response
 }
+
+const REQUEST_DURATION: &str = "http_requests_duration_seconds";
+const SUM_REQUESTS: &str = "http_requests_total";

@@ -44,10 +44,17 @@ impl FromRef<ConfigState> for ApplicationAuthentication {
 }
 
 async fn handle_github_event(
-    State(ApplicationAuthentication { client: _client }): State<ApplicationAuthentication>,
+    State(ApplicationAuthentication { client }): State<ApplicationAuthentication>,
     GitHubEvent(event): GitHubEvent,
 ) -> impl IntoResponse {
-    tracing::error!(kind = ?event, "logic starts now");
+    tracing::error!(?client, kind = ?event, "logic starts now");
+    if let Some(t) = event.installation {
+        let id = match t {
+            octocrab::models::webhook_events::EventInstallation::Full(install) => install.id,
+            octocrab::models::webhook_events::EventInstallation::Minimal(mini) => mini.id,
+        };
+        client.installation(id);
+    }
     "hello world"
 }
 

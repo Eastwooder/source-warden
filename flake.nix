@@ -128,6 +128,7 @@
             inherit cargoArtifacts;
             pname = "server";
             cargoExtraArgs = "-p server";
+            buildInputs = [ pkgs.cmake ];
             CLIENT_DIST = service-ui;
           });
 

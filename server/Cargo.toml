@@ -8,7 +8,7 @@ resolver = "2"
 async-trait = "0.1.77"
 axum = { version = "0.7.4", features = ["tracing", "macros"] }
 axum-core = "0.4.3"
-base64 = "0.21.7"
+base64 = "0.22.0"
 bytes = "1.5.0"
 const_format = "0.2.32"
 envious = "0.2.2"
@@ -20,12 +20,12 @@ hyper-rustls = { version = "0.26.0", optional = true }
 jsonwebtoken = "9.2.0"
 metrics = { version = "0.22.1", default-features = false }
 metrics-exporter-prometheus = { version = "0.13.1", default-features = false }
-octocrab = { version = "0.34.1", features = ["hyper-tls", "rustls-webpki-tokio"] }
+octocrab = { version = "0.34.3", features = ["hyper-tls", "rustls-webpki-tokio"] }
 orion = "0.17.6"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rsa = {version = "0.9.6", features = ["pem"]}
-rustls = "0.22.2"
+rustls = "0.23.1"
 secrecy = { version = "0.8.0", features = ["bytes"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = "1.0.113"

@@ -1,5 +1,6 @@
+use hyper::Uri;
 use jsonwebtoken::EncodingKey;
-use octocrab::models::AppId;
+use octocrab::{models::AppId, Octocrab};
 use orion::hazardous::mac::hmac::sha256::SecretKey;
 use server::config::{load_github_app_config, GitHubAppConfiguration};
 
@@ -8,7 +9,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     setup_tracing()?;
     let app_config = load_github_app_config().unwrap_or(create_dummy_config());
 
-    tokio::try_join!(server::public_app(app_config), server::internal_app())?;
+    tokio::try_join!(
+        server::public_app::<Octocrab>(app_config),
+        server::internal_app()
+    )?;
     Ok(())
 }
 
@@ -44,5 +48,6 @@ fn create_dummy_config() -> GitHubAppConfiguration {
 
             EncodingKey::from_rsa_pem(cert_pem_str.as_bytes()).unwrap()
         },
+        uri: Uri::from_static("https://github.local"),
     }
 }

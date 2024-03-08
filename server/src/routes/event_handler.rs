@@ -5,19 +5,28 @@ use axum::{extract::State, response::IntoResponse, routing::any, Router};
 use axum_core::extract::FromRef;
 use orion::hazardous::mac::hmac::sha256::SecretKey;
 
-use crate::config::GitHubAppConfiguration;
+use crate::{config::GitHubAppConfiguration, routes::event_handler::remote::GitHubActionalbe};
 
-use self::{extractors::GitHubEvent, remote::ApplicationAuthentication};
+use self::extractors::GitHubEvent;
 
+pub use authentication::{AuthenticatedClient, GitHubAuthenticator, InstallationAuthenticator};
+
+mod authentication;
 mod extractors;
 mod remote;
 
-pub fn router(config: GitHubAppConfiguration) -> Result<Router, Box<dyn std::error::Error>> {
-    // FIXME: should I move the remote_config outside??
-    let remote_config = remote::authenticate(config.app_identifier, config.app_key)?;
+pub fn router<C: GitHubAuthenticator>(
+    config: GitHubAppConfiguration,
+) -> Result<Router, Box<dyn std::error::Error>>
+where
+    C::Error: 'static,
+    C::Next: 'static,
+{
+    let client =
+        authentication::authenticate::<C>(config.uri, config.app_identifier, config.app_key)?;
     let signature_config = ConfigState {
         webhook_secret: config.webhook_secret.into(),
-        client: remote_config,
+        client,
     };
     Ok(Router::new().route(
         "/event_handler",
@@ -26,34 +35,35 @@ pub fn router(config: GitHubAppConfiguration) -> Result<Router, Box<dyn std::err
 }
 
 #[derive(Clone)]
-struct ConfigState {
+struct ConfigState<C: InstallationAuthenticator + Clone> {
     webhook_secret: Arc<SecretKey>,
-    client: ApplicationAuthentication,
+    client: AuthenticatedClient<C>,
 }
 
-impl FromRef<ConfigState> for Arc<SecretKey> {
-    fn from_ref(input: &ConfigState) -> Self {
+impl<C: InstallationAuthenticator + Clone> FromRef<ConfigState<C>> for Arc<SecretKey> {
+    fn from_ref(input: &ConfigState<C>) -> Self {
         input.webhook_secret.clone()
     }
 }
 
-impl FromRef<ConfigState> for ApplicationAuthentication {
-    fn from_ref(input: &ConfigState) -> Self {
+impl<C: InstallationAuthenticator + Clone> FromRef<ConfigState<C>> for AuthenticatedClient<C> {
+    fn from_ref(input: &ConfigState<C>) -> Self {
         input.client.clone()
     }
 }
 
-async fn handle_github_event(
-    State(ApplicationAuthentication { client }): State<ApplicationAuthentication>,
+async fn handle_github_event<C: InstallationAuthenticator + Clone>(
+    State(AuthenticatedClient { client }): State<AuthenticatedClient<C>>,
     GitHubEvent(event): GitHubEvent,
 ) -> impl IntoResponse {
-    tracing::error!(?client, kind = ?event, "logic starts now");
+    tracing::error!(kind = ?event, "logic starts now");
     if let Some(t) = event.installation {
         let id = match t {
             octocrab::models::webhook_events::EventInstallation::Full(install) => install.id,
             octocrab::models::webhook_events::EventInstallation::Minimal(mini) => mini.id,
         };
-        client.installation(id);
+        let client = client.for_installation(id);
+        client.post_message();
     }
     "hello world"
 }
@@ -62,19 +72,55 @@ async fn handle_github_event(
 mod test {
     use axum::{body::Body, http::Request};
     use http_body_util::BodyExt;
-    use hyper::StatusCode;
+    use hyper::{StatusCode, Uri};
     use orion::hazardous::mac::hmac::sha256::{HmacSha256, SecretKey};
     use rsa::RsaPublicKey;
     use serde_json::json;
+    use thiserror::Error;
     use tower::ServiceExt;
 
     use crate::config::GitHubAppConfiguration;
+
+    use super::{remote::GitHubActionalbe, GitHubAuthenticator, InstallationAuthenticator};
+
+    #[derive(Clone)]
+    struct TestClient;
+
+    #[derive(Debug, Error)]
+    enum TestError {}
+
+    struct NoOpActionable;
+
+    impl GitHubActionalbe for NoOpActionable {
+        fn post_message(&self) {
+            todo!()
+        }
+    }
+
+    impl GitHubAuthenticator for TestClient {
+        type Next = TestClient;
+        type Error = TestError;
+
+        fn authenticate_app(
+            _uri: Uri,
+            _app_id: octocrab::models::AppId,
+            _app_key: jsonwebtoken::EncodingKey,
+        ) -> Result<Self::Next, Self::Error> {
+            Ok(TestClient)
+        }
+    }
+
+    impl InstallationAuthenticator for TestClient {
+        fn for_installation(&self, _id: octocrab::models::InstallationId) -> impl GitHubActionalbe {
+            NoOpActionable
+        }
+    }
 
     #[tracing_test::traced_test]
     #[tokio::test]
     async fn test_happy_path() {
         let (config, _, secret) = create_test_config();
-        let app = super::router(config).unwrap();
+        let app = super::router::<TestClient>(config).unwrap();
 
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
         let body_hmac = calc_hmac_for_body(&secret, &body);
@@ -97,7 +143,7 @@ mod test {
     #[tokio::test]
     async fn test_missing_signature() {
         let (config, _, _) = create_test_config();
-        let app = super::router(config).unwrap();
+        let app = super::router::<TestClient>(config).unwrap();
 
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
         let request = Request::builder()
@@ -114,7 +160,7 @@ mod test {
     #[tokio::test]
     async fn test_wrong_signature() {
         let (config, _, _) = create_test_config();
-        let app = super::router(config).unwrap();
+        let app = super::router::<TestClient>(config).unwrap();
 
         let body = serde_json::to_vec(&json!({"hello": "world"})).unwrap();
         let request = Request::builder()
@@ -152,6 +198,7 @@ mod test {
                 webhook_secret: secret,
                 app_identifier: AppId(1),
                 app_key: { EncodingKey::from_rsa_pem(cert_pem_str.as_bytes()).unwrap() },
+                uri: Uri::from_static("https://github.local"),
             },
             pub_key,
             SecretKey::from_slice(&[0; 32]).unwrap(),

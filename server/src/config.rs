@@ -1,4 +1,6 @@
+use axum::http::uri::InvalidUri;
 use envious::EnvDeserializationError;
+use hyper::Uri;
 use jsonwebtoken::EncodingKey;
 use octocrab::models::AppId;
 use orion::{errors::UnknownCryptoError, hazardous::mac::hmac::sha256::SecretKey};
@@ -13,6 +15,8 @@ pub fn load_github_app_config() -> Result<GitHubAppConfiguration, ConfigurationE
         github_webhook_secret: String,
         #[serde(default)]
         github_app_identifier: u64,
+        #[serde(default)]
+        github_uri: String,
     }
 
     let raw_config: ApplicationRawConfig = {
@@ -24,11 +28,13 @@ pub fn load_github_app_config() -> Result<GitHubAppConfiguration, ConfigurationE
     let webhook_secret = SecretKey::from_slice(raw_config.github_webhook_secret.as_bytes())?;
     let app_identifier = AppId(raw_config.github_app_identifier);
     let app_key = EncodingKey::from_rsa_pem(raw_config.github_private_key.as_bytes())?;
+    let uri = Uri::try_from(raw_config.github_uri)?;
 
     Ok(GitHubAppConfiguration {
         webhook_secret,
         app_identifier,
         app_key,
+        uri,
     })
 }
 
@@ -36,6 +42,7 @@ pub struct GitHubAppConfiguration {
     pub webhook_secret: SecretKey,
     pub app_identifier: AppId,
     pub app_key: EncodingKey,
+    pub uri: Uri,
 }
 
 #[derive(Debug, Error)]
@@ -46,4 +53,6 @@ pub enum ConfigurationError {
     UnsupportedCryptography(#[from] UnknownCryptoError),
     #[error("Invalid RSA Key")]
     InvalidRsaError(#[from] jsonwebtoken::errors::Error),
+    #[error("Provided base uri is invalid: {0}")]
+    InvalidUri(#[from] InvalidUri),
 }

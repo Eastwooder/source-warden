@@ -5,15 +5,20 @@ use std::net::SocketAddr;
 
 use axum::{middleware::from_fn, Router};
 use config::GitHubAppConfiguration;
+use routes::event_handler::GitHubAuthenticator;
 pub use routes::metrics::track_metrics;
 use tokio::net::TcpListener;
 
-pub async fn public_app(
+pub async fn public_app<C: GitHubAuthenticator>(
     app_config: GitHubAppConfiguration,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    C::Error: 'static,
+    C::Next: 'static,
+{
     let routes = Router::new()
         .merge(routes::ui::router())
-        .merge(routes::event_handler::router(app_config)?)
+        .merge(routes::event_handler::router::<C>(app_config)?)
         .route_layer(from_fn(track_metrics));
 
     let listener = {

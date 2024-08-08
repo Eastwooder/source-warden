@@ -49,7 +49,7 @@
             ];
             targets = [ "wasm32-unknown-unknown" ];
           };
-          craneLib = ((crane.mkLib pkgs).overrideToolchain rustToolchain).overrideScope' (_final: _prev: {
+          craneLib = ((crane.mkLib pkgs).overrideToolchain rustToolchain).overrideScope (_final: _prev: {
             # The version of wasm-bindgen-cli needs to match the version in Cargo.lock. You
             # can unpin this if your nixpkgs commit contains the appropriate wasm-bindgen-cli version
             inherit (import nixpkgs-for-wasm-bindgen { inherit system; }) wasm-bindgen-cli;
@@ -128,7 +128,7 @@
             inherit cargoArtifacts;
             pname = "server";
             cargoExtraArgs = "-p server";
-            buildInputs = [ pkgs.cmake ];
+            buildInputs = [ pkgs.cmake pkgs.openssl ];
             CLIENT_DIST = service-ui;
           });
 

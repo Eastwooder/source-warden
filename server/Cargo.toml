@@ -5,40 +5,40 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
-async-trait = "0.1.77"
-axum = { version = "0.7.4", features = ["tracing", "macros"] }
+async-trait = "0.1.81"
+axum = { version = "0.7.5", features = ["tracing", "macros"] }
 axum-core = "0.4.3"
-base64 = "0.22.0"
-bytes = "1.5.0"
+base64 = "0.22.1"
+bytes = "1.7.1"
 const_format = "0.2.32"
 envious = "0.2.2"
 futures-util = "0.3.30"
 hex = "0.4.3"
-http-body-util = "0.1.0"
-hyper = "1.1.0"
-hyper-rustls = { version = "0.26.0", optional = true }
-jsonwebtoken = "9.2.0"
-metrics = { version = "0.22.1", default-features = false }
-metrics-exporter-prometheus = { version = "0.13.1", default-features = false }
-octocrab = { version = "0.34.3", features = ["hyper-tls", "rustls-webpki-tokio"] }
+http-body-util = "0.1.2"
+hyper = "1.4.1"
+hyper-rustls = { version = "0.27.2", optional = true }
+jsonwebtoken = "9.3.0"
+metrics = { version = "0.23.0", default-features = false }
+metrics-exporter-prometheus = { version = "0.15.3", default-features = false }
+octocrab = { version = "0.39.0", features = ["hyper-tls", "rustls-webpki-tokio"] }
 orion = "0.17.6"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rsa = {version = "0.9.6", features = ["pem"]}
-rustls = "0.23.1"
+rustls = "0.23.12"
 secrecy = { version = "0.8.0", features = ["bytes"] }
 serde = { workspace = true, features = ["derive"] }
-serde_json = "1.0.113"
-thiserror = "1.0.57"
-tokio = { version = "1.36.0", features = ["full", "tracing"] }
+serde_json = "1.0.122"
+thiserror = "1.0.63"
+tokio = { version = "1.39.2", features = ["full", "tracing"] }
 tower = "0.4.13"
-tower-http = "0.5.1"
+tower-http = "0.5.2"
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "local-time"] }
 
 [dev-dependencies]
-tracing-test = "0.2.4"
-http-body-util = "0.1.0"
+tracing-test = "0.2.5"
+http-body-util = "0.1.2"
 
 [features]
 hyper-rustls = ["dep:hyper-rustls"]
